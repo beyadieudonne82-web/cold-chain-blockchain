@@ -1,8 +1,18 @@
 # Traçabilité de la chaîne du froid des médicaments et vaccins
 
-Projet du cours **Blockchain et cryptomonnaie** — Master 1, mention Mathématiques, Statistiques et Informatique, Faculté des Sciences et Technologies, Université de Kinshasa.
+#
 
-**Groupe 08 — Blockchain et Internet des objets**
+**Université de Kinshasa (UNIKIN)**
+**Faculté des Sciences et Technologies**
+**Département de Mathématiques, Statistiques et Informatique**
+Master 1 : cours de Blockchain et cryptomonnaie
+
+PROF : KASENGEDIA, 
+
+Doctorant: Junior Kaningini
+
+Groupe 08 : Blockchain et Internet des objets
+Année académique : 2025-2026
 
 | Membres |
 |---|
