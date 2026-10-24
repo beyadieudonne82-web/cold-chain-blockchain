@@ -113,39 +113,18 @@ Le collecteur est déployé sur Render (dossier racine `collector`) et la DApp s
 - Une analyse automatique ne garantit pas l'absence de toute faille, et le contrat n'a pas fait l'objet d'un audit professionnel.
 
 ## 9. Coûts en gas
-À COMPLÉTER : ·············································································································
-|  Solidity and Network Configuration                                                                       │
-························|·················|···············|·················|································
-|  Solidity: 0.8.28     ·  Optim: true    ·  Runs: 200    ·  viaIR: false   ·     Block: 60,000,000 gas     │
-························|·················|···············|·················|································
-|  Methods                                                                                                  │
-························|·················|···············|·················|················|···············
-|  Contracts / Methods  ·  Min            ·  Max          ·  Avg            ·  # calls       ·  usd (avg)   │
-························|·················|···············|·················|················|···············
-|  ColdChain            ·                                                                                   │
-························|·················|···············|·················|················|···············
-|      anchorRoot       ·              -  ·            -  ·        121,137  ·             1  ·           -  │
-························|·················|···············|·················|················|···············
-|      flagBreach       ·              -  ·            -  ·         34,996  ·             2  ·           -  │
-························|·················|···············|·················|················|···············
-|      grantRole        ·              -  ·            -  ·         51,485  ·             1  ·           -  │
-························|·················|···············|·················|················|···············
-|      registerLot      ·              -  ·            -  ·         78,266  ·             5  ·           -  │
-························|·················|···············|·················|················|···············
-|  Deployments                            ·                                 ·  % of limit    ·              │
-························|·················|···············|·················|················|···············
-|  ColdChain            ·              -  ·            -  ·      1,044,771  ·         1.7 %  ·           -  │
-························|·················|···············|·················|················|···············
-|  Key                                                                                                      │
-·············································································································
-|  ◯  Execution gas for this method does not include intrinsic gas overhead                                 │
-·············································································································
-|  △  Cost was non-zero but below the precision setting for the currency display (see options)              │
-·············································································································
-|  Toolchain:  hardhat                                                                                      │
-·············································································································
- `blockchain/gas-report.txt` (déploiement, `registerLot`, `anchorRoot`, `flagBreach`).
 
+Mesures réalisées avec Hardhat (Solidity 0.8.28, optimiseur activé, 200 exécutions) à partir des tests automatisés. Le coût réel en ETH dépend du prix du gas au moment de la transaction.
+
+| Opération | Gas (moyenne) | Appels dans les tests |
+|---|---|---|
+| Déploiement de `ColdChain` | 1 044 771 (1,7 % de la limite de bloc) | 1 |
+| `registerLot` | 78 266 | 5 |
+| `anchorRoot` | 121 137 | 1 |
+| `flagBreach` | 34 996 | 2 |
+| `grantRole` | 51 485 | 1 |
+
+L'ancrage d'une seule racine de Merkle (environ 121 000 gas) couvre un paquet entier de 10 mesures : écrire chaque mesure séparément serait plus coûteux.
 ## 10. Tokenomics
 Le projet n'utilise **aucun jeton** : pas de cryptomonnaie, pas de vente, pas de promesse de rendement.
 
