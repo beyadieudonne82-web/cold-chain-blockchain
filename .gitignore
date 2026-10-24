@@ -1,0 +1,17 @@
+# Secrets
+.env
+*.env
+
+# Dépendances
+node_modules
+venv
+slither-env
+__pycache__
+*.pyc
+
+# Fichiers générés
+artifacts
+cache
+coverage
+dist
+pip-log.txt

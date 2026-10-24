@@ -1,0 +1,27 @@
+'npx hardhat clean' running (wd: C:\Users\DIG DIEUDONNE\Documents\Projets\cold-chain-blockchain\blockchain)
+'npx hardhat clean --global' running (wd: C:\Users\DIG DIEUDONNE\Documents\Projets\cold-chain-blockchain\blockchain)
+Problem executing hardhat: ◇ injected env (3) from .env
+◇ injected env (0) from .env
+
+'npx hardhat compile --force' running (wd: C:\Users\DIG DIEUDONNE\Documents\Projets\cold-chain-blockchain\blockchain)
+INFO:Printers:
+Compiled with Builder
+Total number of contracts in source files: 1
+Number of contracts in dependencies: 9
+Source lines of code (SLOC) in source files: 102
+Source lines of code (SLOC) in dependencies: 461
+Number of  assembly lines: 0
+Number of optimization issues: 0
+Number of informational issues: 0
+Number of low issues: 0
+Number of medium issues: 0
+Number of high issues: 0
+
+ERCs: ERC165
+
++-----------+-------------+--------+------------+--------------+----------+
+| Name      | # functions | ERCS   | ERC20 info | Complex code | Features |
++-----------+-------------+--------+------------+--------------+----------+
+| ColdChain | 35          | ERC165 |            | No           |          |
++-----------+-------------+--------+------------+--------------+----------+
+INFO:Slither:. analyzed (10 contracts)
