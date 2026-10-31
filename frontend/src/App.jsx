@@ -90,6 +90,7 @@ export default function App() {
       <header>
         <h1>Chaîne du froid</h1>
         <p>Vérification de lots de médicaments et vaccins (réseau de test Sepolia)</p>
+        <p className="hint">La lecture d'un lot est publique ; la connexion du portefeuille permet d'interagir avec le contrat.</p>
         <button onClick={connectWallet}>
           {account ? `Connecté : ${account.slice(0, 6)}…${account.slice(-4)}` : "Connecter MetaMask"}
         </button>
