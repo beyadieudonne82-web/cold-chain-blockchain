@@ -6,6 +6,12 @@ import {
 } from "./contract";
 import "./App.css";
 import MerkleExplorer from "./MerkleExplorer";
+const MEDICINE_NAMES = {
+  VACCIN: "Vaccin",
+  INSULINE: "Insuline",
+  ANTIBIOTIQUE: "Antibiotique (exemple)",
+  VACCIN_CONGELE: "Vaccin congelé (exemple)",
+};
 
 export default function App() {
   const [account, setAccount] = useState("");

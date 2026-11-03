@@ -34,6 +34,15 @@ const batchSize = Number(BATCH_SIZE);
 const minTemp = Number(MIN_TEMP);
 const maxTemp = Number(MAX_TEMP);
 
+// --- Catalogue de types de médicaments (plages en dixièmes de °C, valeurs d'illustration) ---
+const CATALOGUE = {
+  VACCIN: { min: 20, max: 80 },
+  INSULINE: { min: 20, max: 80 },
+  ANTIBIOTIQUE: { min: 150, max: 250 },
+  VACCIN_CONGELE: { min: -250, max: -150 },
+};
+const rangeOf = (medicine) => CATALOGUE[medicine] || { min: minTemp, max: maxTemp };
+
 // --- Stockage local des preuves (pour la DApp) ---
 const DATA_DIR = "data";
 const BATCH_FILE = `${DATA_DIR}/batches.json`;
@@ -51,21 +60,22 @@ function enqueue(fn) {
   return queue;
 }
 
-const lots = new Map(); // lotName -> { lotId, buffer, flagged }
+const lots = new Map(); // lotName -> { lotId, medicine, range, buffer, flagged }
 
-async function ensureLot(lotId, lotName) {
+async function ensureLot(lotId, lotName, medicine) {
   try {
     await contract.getLot(lotId);
     return;
   } catch (_) { /* lot inconnu : on l'enregistre */ }
-  console.log("Enregistrement du lot", lotName);
-  const productHash = ethers.id("produit:" + lotName);
-  const tx = await contract.registerLot(lotId, productHash, minTemp, maxTemp);
+  const r = rangeOf(medicine);
+  console.log("Enregistrement du lot", lotName, "|", medicine, "|", r.min / 10, "à", r.max / 10, "°C");
+  const productHash = ethers.id(`produit:${medicine}:${lotName}`);
+  const tx = await contract.registerLot(lotId, productHash, r.min, r.max);
   await tx.wait();
 }
 
-async function anchorBatch(lotName, lotId, batch) {
-  await ensureLot(lotId, lotName);
+async function anchorBatch(lotName, lotId, medicine, batch) {
+  await ensureLot(lotId, lotName, medicine);
   const leaves = batch.map((b) => Buffer.from(b.leaf.slice(2), "hex"));
   const tree = new MerkleTree(leaves, keccak, { sortPairs: true });
   const root = tree.getHexRoot();
@@ -76,7 +86,7 @@ async function anchorBatch(lotName, lotId, batch) {
   const anchorIndex = Number(lot.anchorCount) - 1;
 
   batches.push({
-    lotName, lotId, anchorIndex, root, txHash: tx.hash,
+    lotName, lotId, medicine, anchorIndex, root, txHash: tx.hash,
     measures: batch.map((b, i) => ({
       temperature: b.temperature,
       timestamp: b.timestamp,
@@ -88,8 +98,8 @@ async function anchorBatch(lotName, lotId, batch) {
   console.log(`Racine ancrée (lot ${lotName}, index ${anchorIndex}) tx: ${tx.hash}`);
 }
 
-async function flagLot(lotName, lotId, temperature, leaf) {
-  await ensureLot(lotId, lotName);
+async function flagLot(lotName, lotId, medicine, temperature, leaf) {
+  await ensureLot(lotId, lotName, medicine);
   const tx = await contract.flagBreach(lotId, temperature, leaf);
   await tx.wait();
   console.log(`RUPTURE signalée (lot ${lotName}, ${temperature / 10} °C) tx: ${tx.hash}`);
@@ -113,21 +123,25 @@ async function handleMessage(payload) {
     return console.warn("Signature invalide (appareil inconnu), mesure rejetée");
   }
 
-  const state = lots.get(lotName) || { lotId, buffer: [], flagged: false };
+  // 3. Type de médicament : uniquement ceux du catalogue
+  const medicine = String(m.medicine || "VACCIN").toUpperCase();
+  if (!CATALOGUE[medicine]) return console.warn("Type de médicament inconnu, mesure rejetée");
+
+  const state = lots.get(lotName) || { lotId, medicine, range: CATALOGUE[medicine], buffer: [], flagged: false };
   lots.set(lotName, state);
   state.buffer.push({ temperature, timestamp, leaf });
-  console.log(`Mesure valide ${temperature / 10} °C (${state.buffer.length}/${batchSize})`);
+  console.log(`Mesure valide ${temperature / 10} °C (${state.buffer.length}/${batchSize}) [${state.medicine}]`);
 
-  // 3. Rupture de la chaîne du froid
-  if ((temperature < minTemp || temperature > maxTemp) && !state.flagged) {
+  // 4. Rupture de la chaîne du froid, selon la plage du lot
+  if ((temperature < state.range.min || temperature > state.range.max) && !state.flagged) {
     state.flagged = true;
-    enqueue(() => flagLot(lotName, lotId, temperature, leaf));
+    enqueue(() => flagLot(lotName, lotId, state.medicine, temperature, leaf));
   }
 
-  // 4. Ancrage par paquets
+  // 5. Ancrage par paquets
   if (state.buffer.length >= batchSize) {
     const batch = state.buffer.splice(0, state.buffer.length);
-    enqueue(() => anchorBatch(lotName, lotId, batch));
+    enqueue(() => anchorBatch(lotName, lotId, state.medicine, batch));
   }
 }
 

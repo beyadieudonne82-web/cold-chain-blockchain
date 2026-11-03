@@ -60,9 +60,8 @@ def sign_leaf(leaf: bytes) -> str:
 
 def next_temperature(count: int) -> int:
     if BREACH_MODE and count >= 5:
-        return random.randint(95, 130)
-    return random.randint(30, 70)
-
+        return random.randint(RANGE_MAX + 15, RANGE_MAX + 50)
+    return random.randint(RANGE_MIN + 10, RANGE_MAX - 10)
 
 def on_connect(client, userdata, flags, reason_code, properties=None):
     print("Connecté au broker MQTT :", reason_code)
@@ -88,6 +87,7 @@ try:
         payload = {
             "lotName": LOT_NAME,
             "lotId": "0x" + LOT_ID.hex(),
+                        "medicine": MEDICINE,
             "device": ACCOUNT.address,
             "temperature": temp,
             "timestamp": ts,
