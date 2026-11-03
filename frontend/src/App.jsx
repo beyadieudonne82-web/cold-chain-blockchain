@@ -5,6 +5,7 @@ import {
   lotIdOf, publicContract, walletContract,
 } from "./contract";
 import "./App.css";
+import MerkleExplorer from "./MerkleExplorer";
 
 export default function App() {
   const [account, setAccount] = useState("");
@@ -132,6 +133,7 @@ export default function App() {
       {batches.map((b) => (
         <section className="card" key={b.txHash}>
           <h3>Paquet n°{b.anchorIndex}</h3>
+              {b.medicine && <p className="hint">Médicament : {MEDICINE_NAMES[b.medicine] || b.medicine}</p>}
           <small>Racine : <code>{b.root.slice(0, 18)}…</code></small>
           <table>
             <thead>
@@ -154,6 +156,7 @@ export default function App() {
               })}
             </tbody>
           </table>
+                    <MerkleExplorer batch={b} />
         </section>
       ))}
     </div>

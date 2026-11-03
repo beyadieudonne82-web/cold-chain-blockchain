@@ -9,6 +9,7 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 export const ABI = [
   "function getLot(bytes32 lotId) view returns (tuple(bool exists, bool compromised, uint64 createdAt, int16 minTemp, int16 maxTemp, bytes32 productHash, uint32 anchorCount))",
   "function verifyMeasurement(bytes32 lotId, uint256 anchorIndex, bytes32 leaf, bytes32[] proof) view returns (bool)",
+  "function getAnchor(bytes32 lotId, uint256 index) view returns (tuple(bytes32 root, uint32 measureCount, uint64 timestamp))",
 ];
 
 export const lotIdOf = (name) => ethers.id(name);
