@@ -24,6 +24,16 @@ if not DEVICE_KEY.startswith("0x"):
     DEVICE_KEY = "0x" + DEVICE_KEY
 LOT_NAME = os.getenv("LOT_NAME", "LOT-2026-001")
 INTERVAL = float(os.getenv("INTERVAL_SECONDS", "2"))
+MEDICINE = os.getenv("MEDICINE", "VACCIN").upper()
+CATALOGUE = {
+    "VACCIN": (20, 80),
+    "INSULINE": (20, 80),
+    "ANTIBIOTIQUE": (150, 250),
+    "VACCIN_CONGELE": (-250, -150),
+}
+if MEDICINE not in CATALOGUE:
+    sys.exit("Type inconnu. Choisir parmi : " + ", ".join(CATALOGUE))
+RANGE_MIN, RANGE_MAX = CATALOGUE[MEDICINE]
 
 LOT_ID = keccak(text=LOT_NAME)
 ACCOUNT = Account.from_key(DEVICE_KEY)
