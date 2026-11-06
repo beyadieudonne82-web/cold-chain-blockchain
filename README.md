@@ -28,7 +28,7 @@ Ce projet consiste à concevoir et à développer un système de traçabilité d
 
 L'objectif principal est de garantir l'intégrité et la traçabilité des informations relatives aux températures enregistrées pendant le transport et le stockage des produits pharmaceutiques.
 
-Le système permet notamment de vérifier si un lot de médicaments ou de vaccins a été conservé dans les conditions de température qui lui sont applicables et de permettre à une pharmacie de consulter ces informations à partir d'une application décentralisée (DApp).
+Le système permet notamment de vérifier si un lot de médicaments ou de vaccins a été conservé dans les conditions de température qui lui sont applicables, et de permettre à une pharmacie de consulter ces informations à partir d'une application décentralisée (DApp).
 
 ### Objectifs spécifiques
 
@@ -37,11 +37,14 @@ Le prototype permet de :
 - Simuler des capteurs de température à l'aide du langage Python.
 - Signer cryptographiquement chaque mesure afin de garantir son authenticité.
 - Transmettre les mesures par le protocole MQTT sécurisé (TLS).
-- Regrouper périodiquement les mesures en paquets.
+- Regrouper périodiquement les mesures en paquets de dix.
 - Construire un arbre de Merkle pour garantir l'intégrité des données.
 - Ancrer les racines de Merkle sur la blockchain Ethereum.
+- Gérer plusieurs types de produits (vaccin, insuline, etc.), chacun avec sa plage de température.
 - Détecter et signaler les ruptures de la chaîne du froid.
 - Permettre la vérification des lots par une pharmacie grâce à une DApp et à un QR code.
+- Visualiser le fonctionnement de l'arbre de Merkle, de la mesure jusqu'à la racine, et comparer la racine recalculée à celle de la blockchain.
+- Permettre à un opérateur autorisé de créer de nouveaux lots depuis la DApp avec son portefeuille MetaMask.
 
 ## 2. Liens et ressources du projet
 
@@ -53,9 +56,9 @@ Le prototype permet de :
 | Collecteur de données | https://cold-chain-blockchain.onrender.com |
 | API des paquets de mesures | https://cold-chain-blockchain.onrender.com/batches |
 
-**Réseau blockchain utilisé : Ethereum Sepolia (réseau de test).**
+**Réseau blockchain utilisé : Ethereum Sepolia (réseau de test, identifiant de chaîne 11155111).**
 
-Le sujet initial mentionnait Polygon Amoy. Cependant, pour des raisons liées aux contraintes d'approvisionnement en jetons de test et aux conditions de réalisation du projet, Ethereum Sepolia a été retenu.
+Le sujet initial mentionnait Polygon Amoy. Cependant, pour des raisons liées aux contraintes d'approvisionnement en jetons de test (les robinets Amoy exigeaient des fonds réels sur le réseau principal, ce qui est interdit par les règles du projet), Ethereum Sepolia a été retenu.
 
 Le contrat intelligent est déployé sur Sepolia. Une migration vers Polygon Amoy reste envisageable en adaptant la configuration et en redéployant le contrat.
 
@@ -63,12 +66,12 @@ Le contrat intelligent est déployé sur Sepolia. Une migration vers Polygon Amo
 
 - Le collecteur utilise l'offre gratuite de Render. Il peut être mis en veille après une période d'inactivité. La première requête peut donc prendre environ une minute.
 - MetaMask est utilisé pour les interactions nécessitant un portefeuille.
-- La consultation publique des informations d'un lot ne nécessite pas obligatoirement une connexion MetaMask.
-- Les domaines Vercel peuvent afficher un avertissement de sécurité de MetaMask lors de leur première utilisation.
+- La consultation publique des informations d'un lot ne nécessite pas de connexion MetaMask.
+- Les domaines Vercel récents peuvent afficher un avertissement de sécurité de MetaMask lors de leur première utilisation.
 
 ## 3. Architecture technique du système
 
-Le système repose sur quatre composants principaux : les capteurs IoT, le broker MQTT, le collecteur de données, le contrat intelligent et l'application décentralisée.
+Le système repose sur cinq composants : les capteurs IoT, le broker MQTT, le collecteur de données, le contrat intelligent et l'application décentralisée.
 
 ### 3.1. Schéma architectural
 
@@ -112,28 +115,24 @@ Le système repose sur quatre composants principaux : les capteurs IoT, le broke
 
 ### 3.2. Fonctionnement général
 
-1. Le capteur simulé collecte périodiquement une température.
+1. Le capteur simulé collecte périodiquement une température, exprimée en dixièmes de degré Celsius (45 correspond à 4,5 °C).
 2. Chaque mesure est associée à un horodatage et à un identifiant de lot.
-3. Le capteur génère une empreinte cryptographique et signe la mesure.
+3. Le capteur génère une empreinte cryptographique (keccak256 du lot, de la température et de l'heure) et signe la mesure.
 4. Les données sont transmises au collecteur par MQTT avec TLS.
-5. Le collecteur vérifie les signatures et regroupe les mesures.
+5. Le collecteur vérifie les signatures, enregistre le lot s'il est nouveau, et regroupe les mesures par paquets de dix.
 6. Il construit un arbre de Merkle et calcule sa racine.
-7. La racine est enregistrée sur Ethereum Sepolia à travers le contrat intelligent.
+7. La racine est enregistrée sur Ethereum Sepolia à travers le contrat intelligent. Si une température sort de la plage du lot, le collecteur signale la rupture.
 8. La DApp permet à un utilisateur de consulter les informations du lot et de vérifier les preuves d'intégrité.
 
 ### 3.3. Données enregistrées sur la blockchain
 
-Les informations suivantes sont enregistrées sur la blockchain :
-
-- L'identifiant cryptographique du lot.
-- Les limites minimale et maximale de température.
+- L'identifiant cryptographique du lot et l'empreinte du produit.
+- Les limites minimale et maximale de température du lot.
 - Les racines de Merkle des paquets de mesures.
 - L'état de conformité ou de rupture de la chaîne du froid.
-- Les informations nécessaires à la vérification des preuves.
+- Les événements `LotRegistered`, `RootAnchored` et `BreachFlagged`.
 
 ### 3.4. Données conservées hors blockchain
-
-Les données suivantes sont conservées par le collecteur :
 
 - Les mesures brutes de température.
 - Les horodatages.
@@ -141,52 +140,116 @@ Les données suivantes sont conservées par le collecteur :
 - Les feuilles et les preuves de Merkle.
 - Les informations détaillées des paquets.
 
-Le fichier utilisé pour conserver les paquets est :
-
-`collector/data/batches.json`
+Le fichier utilisé pour conserver les paquets est `collector/data/batches.json`, servi par l'API `/batches` du collecteur.
 
 ### 3.5. Utilité de l'arbre de Merkle
 
 L'arbre de Merkle permet de regrouper plusieurs mesures dans une structure cryptographique unique.
 
-Chaque mesure constitue une feuille de l'arbre. Les feuilles sont combinées progressivement pour produire une racine de Merkle.
+Chaque mesure constitue une feuille de l'arbre. Les feuilles sont combinées deux à deux, progressivement, pour produire une racine de Merkle. Cette racine est ensuite enregistrée sur la blockchain.
 
-Cette racine est ensuite enregistrée sur la blockchain.
-
-L'avantage est de ne pas enregistrer chaque mesure individuellement sur la blockchain, ce qui permet de réduire les coûts en gas tout en conservant la possibilité de vérifier l'intégrité d'une mesure particulière.
+L'avantage est de ne pas enregistrer chaque mesure individuellement sur la blockchain, ce qui réduit les coûts en gas tout en conservant la possibilité de vérifier l'intégrité d'une mesure particulière grâce à sa **preuve de Merkle** (les empreintes « voisines » qui permettent de remonter jusqu'à la racine).
 
 ## 4. Catalogue des médicaments et plages de température
 
-Le système intègre un catalogue de différents types de produits pharmaceutiques.
+Le système intègre un catalogue de types de produits pharmaceutiques. Chaque type correspond à une plage de température, enregistrée **sur la blockchain, lot par lot**, au moment de la création du lot.
 
-| Type de produit | Température minimale | Température maximale |
-|---|---:|---:|
-| Vaccin | 2 °C | 8 °C |
-| Insuline | 2 °C | 8 °C |
-| Antibiotique (exemple) | 15 °C | 25 °C |
-| Vaccin congelé (exemple) | -25 °C | -15 °C |
+| Type de produit | Code | Température minimale | Température maximale |
+|---|---|---:|---:|
+| Vaccin | `VACCIN` | 2 °C | 8 °C |
+| Insuline | `INSULINE` | 2 °C | 8 °C |
+| Antibiotique (exemple) | `ANTIBIOTIQUE` | 15 °C | 25 °C |
+| Vaccin congelé (exemple) | `VACCIN_CONGELE` | -25 °C | -15 °C |
 
-Ces valeurs sont des paramètres de démonstration du prototype. Les conditions réelles de conservation doivent toujours être définies selon les recommandations du fabricant et les exigences applicables à chaque produit.
+Ces valeurs sont des paramètres de **démonstration** du prototype. Les conditions réelles de conservation doivent toujours être définies selon les recommandations du fabricant et les exigences applicables à chaque produit.
 
-Le système compare les températures enregistrées avec les limites configurées pour chaque lot.
+**Comment le type est utilisé :**
 
-Lorsqu'une température dépasse les limites autorisées, le système peut signaler une rupture de la chaîne du froid.
+- Le capteur indique le type du produit avec la variable d'environnement `MEDICINE` (par défaut `VACCIN`) et le lot avec `LOT_NAME`.
+- Le collecteur enregistre un nouveau lot avec la plage correspondant à son type, puis compare chaque température à cette plage.
+- Lorsqu'une température sort de la plage, le lot est marqué comme rompu (événement `BreachFlagged`).
+- La DApp lit la plage directement sur la blockchain : elle s'adapte donc automatiquement à chaque lot.
 
-## 5. Structure du dépôt GitHub
+Le type de produit doit être **identique** entre le lot et le capteur qui lui envoie des mesures.
 
-Le projet est organisé en plusieurs dossiers :
+## 5. Fonctionnalités de la DApp
+
+### 5.1. Consulter un lot
+
+Saisir le code du lot (par exemple `LOT-2026-001`) ou scanner son QR code. La DApp lit sur la blockchain :
+
+- le bandeau **« chaîne du froid respectée »** (vert) ou **« chaîne du froid rompue »** (rouge) ;
+- la plage de température autorisée ;
+- le nombre de racines de Merkle ancrées ;
+- la date d'enregistrement du lot et l'adresse du contrat.
+
+Cette lecture est publique : elle ne nécessite ni compte ni portefeuille.
+
+### 5.2. Vérifier une mesure : « intègre » n'est pas « conforme »
+
+Pour chaque mesure d'un paquet, le bouton **Vérifier** envoie la mesure et sa preuve de Merkle au contrat, qui recalcule la racine et la compare à celle ancrée. Le résultat combine deux informations indépendantes :
+
+| Message | Signification |
+|---|---|
+| ✔ **Conforme · intègre** | La mesure n'a pas été modifiée et sa température est dans la plage du lot |
+| ⚠ **Hors plage · intègre** | La mesure n'a pas été modifiée, mais sa température sort de la plage du lot |
+| ✘ **Invalide : mesure modifiée** | La preuve ne mène pas à la racine ancrée : la mesure a été modifiée après coup |
+
+**À retenir :** la blockchain ne dit pas que la température est bonne, elle prouve que la donnée enregistrée n'a pas été modifiée. Une mesure « hors plage » peut donc être parfaitement intègre : c'est justement elle qui prouve la rupture de la chaîne du froid.
+
+### 5.3. Visualiser l'arbre de Merkle
+
+Sous chaque paquet, le bouton **Voir l'arbre de Merkle de ce paquet** affiche :
+
+- une explication du trajet de la mesure, du capteur jusqu'à la racine ;
+- l'arbre complet : mesures (h1, h2, …), niveaux intermédiaires (h12, h34, …) et racine ;
+- le **chemin de la mesure choisie** (en vert) et les **voisins fournis comme preuve** (en orange) ;
+- le détail du calcul pour la mesure sélectionnée : **la feuille est recalculée dans le navigateur** à partir de la température et de l'heure, puis comparée à celle reçue ;
+- la **racine recalculée**, comparée à la racine enregistrée par le collecteur puis, par un bouton, à celle **lue sur la blockchain** ;
+- un **mode démonstration à 4 mesures** (h1 à h4, h12, h34) qui correspond au schéma pédagogique du rapport.
+
+Un nœud sans voisin (par exemple h9-10 avec dix mesures) remonte tel quel au niveau suivant.
+
+### 5.4. Mes lots
+
+La carte **Mes lots** permet de garder une liste de lots à suivre :
+
+- **Ajouter** : suivre un lot existant (la DApp vérifie qu'il existe sur la blockchain) ;
+- **Ouvrir** : afficher directement le lot ;
+- **Retirer de ma liste** : masquer le lot de la liste.
+
+La liste est enregistrée **dans le navigateur de l'utilisateur**. Retirer un lot de la liste **ne supprime rien sur la blockchain** : un lot enregistré y reste, ce qui garantit la traçabilité. Le contrat ne propose volontairement aucune fonction de suppression.
+
+### 5.5. Espace opérateur : créer un lot
+
+Lorsqu'un portefeuille disposant du **rôle collecteur** (`COLLECTOR_ROLE`) est connecté, la DApp affiche un formulaire de création de lot :
+
+1. saisir le nom du lot (3 à 40 caractères : lettres, chiffres et tirets) ;
+2. choisir le type de médicament (la plage de température correspondante s'affiche) ;
+3. cliquer sur **Créer le lot** et confirmer la transaction dans MetaMask (le gas est payé en ETH de test par le portefeuille de l'opérateur).
+
+Une fois le lot créé, la DApp affiche le lien de la transaction sur Etherscan et la commande du capteur à lancer pour lui envoyer des mesures. Un portefeuille **sans** le rôle collecteur peut consulter les lots mais pas en créer.
+
+**Attribuer le rôle collecteur** (opération réservée à l'administrateur du contrat, sans modifier le code) : sur la page Etherscan du contrat, onglet *Write Contract*, connecter le compte administrateur et appeler `grantRole` avec :
+
+- `role` : la valeur de `COLLECTOR_ROLE` (visible dans l'onglet *Read Contract*) ;
+- `account` : l'adresse du portefeuille à autoriser.
+
+Le droit se retire avec `revokeRole`. Le rôle collecteur permet aussi d'ancrer des racines et de signaler des ruptures : il ne doit être donné qu'à des personnes de confiance.
+
+## 6. Structure du dépôt GitHub
 
 | Dossier | Description |
 |---|---|
 | `blockchain/` | Contrat intelligent Solidity, tests Hardhat et scripts de déploiement. |
 | `iot/` | Simulateur de capteur Python, génération des mesures et signatures cryptographiques. |
-| `collector/` | Collecteur Node.js, communication MQTT, vérification des signatures et construction des arbres de Merkle. |
-| `frontend/` | Application décentralisée React avec Vite. |
+| `collector/` | Collecteur Node.js, communication MQTT, vérification des signatures, catalogue de médicaments et construction des arbres de Merkle. |
+| `frontend/` | Application décentralisée React avec Vite (consultation, arbre de Merkle, Mes lots, espace opérateur). |
 | `docs/` | Rapports techniques et captures d'écran du projet. |
 
-## 6. Technologies, bibliothèques et services utilisés
+## 7. Technologies, bibliothèques et services utilisés
 
-### 6.1. Technologies principales
+### 7.1. Technologies principales
 
 | Technologie | Utilisation |
 |---|---|
@@ -198,57 +261,50 @@ Le projet est organisé en plusieurs dossiers :
 | Vite | Environnement de développement frontend. |
 | MQTT | Transmission des mesures. |
 | TLS | Sécurisation des communications. |
-| Merkle Tree | Vérification de l'intégrité des données. |
+| Arbre de Merkle | Vérification de l'intégrité des données. |
 
-### 6.2. Bibliothèques utilisées
+### 7.2. Bibliothèques utilisées
 
 - OpenZeppelin Contracts : `AccessControl`, `ReentrancyGuard`, `MerkleProof`.
 - Hardhat : compilation, tests et déploiement du contrat.
-- ethers.js : interaction avec la blockchain.
-- merkletreejs : construction des arbres de Merkle.
+- ethers.js : interaction avec la blockchain (collecteur et DApp).
+- merkletreejs : construction des arbres de Merkle dans le collecteur.
 - MQTT.js : communication MQTT côté collecteur.
 - paho-mqtt : communication MQTT côté capteur Python.
-- eth-account : gestion des comptes et signatures cryptographiques.
-- eth-utils : fonctions cryptographiques.
+- eth-account et eth-utils : comptes, signatures et fonctions cryptographiques côté capteur.
 - dotenv : gestion des variables d'environnement.
-- React : développement de l'interface utilisateur.
+- React et Vite : interface utilisateur.
 - qrcode.react : génération des QR codes.
 - Slither : analyse statique du contrat intelligent.
 
-### 6.3. Services externes
+### 7.3. Services externes
 
-- EMQX Cloud : broker MQTT.
+- EMQX Cloud : broker MQTT (offre Serverless).
 - Alchemy : fournisseur d'accès RPC Ethereum.
 - Etherscan : consultation des transactions et du contrat.
 - Render : hébergement du collecteur.
 - Vercel : hébergement de la DApp.
 - MetaMask : connexion au portefeuille Ethereum.
 
-## 7. Installation et lancement en environnement local
+## 8. Installation et lancement en environnement local
 
-### 7.1. Prérequis
-
-Avant l'installation, il faut disposer des éléments suivants :
+### 8.1. Prérequis
 
 - Node.js version 20 ou supérieure.
 - npm.
 - Python 3.
 - Git.
 - MetaMask.
-- Un accès à Ethereum Sepolia.
+- Un accès à Ethereum Sepolia et quelques ETH de test.
 - Un compte et une configuration MQTT sur EMQX Cloud.
 
-### 7.2. Configuration des variables d'environnement
+### 8.2. Configuration des variables d'environnement
 
-Chaque composant possède un fichier `.env.example`.
+Chaque composant possède un fichier `.env.example`. Il faut le copier vers `.env`, puis renseigner les variables nécessaires.
 
-Il faut copier ce fichier vers `.env`, puis renseigner les variables nécessaires.
+Les clés privées, mots de passe et autres informations confidentielles ne doivent **jamais** être publiés sur GitHub (les fichiers `.env` sont exclus par le `.gitignore`).
 
-Les clés privées, mots de passe et autres informations confidentielles ne doivent jamais être publiés sur GitHub.
-
-### 7.3. Installation du contrat intelligent
-
-Dans un premier terminal :
+### 8.3. Installation du contrat intelligent
 
 ```bash
 cd blockchain
@@ -256,9 +312,7 @@ npm install
 npx hardhat test
 ```
 
-### 7.4. Démarrage du collecteur
-
-Dans un deuxième terminal :
+### 8.4. Démarrage du collecteur
 
 ```bash
 cd collector
@@ -266,11 +320,9 @@ npm install
 node index.js
 ```
 
-Le collecteur doit être configuré avec les informations de connexion au broker MQTT et les paramètres blockchain nécessaires.
+Le collecteur doit être configuré avec les informations de connexion au broker MQTT et les paramètres blockchain. **Ne lancer qu'un seul collecteur à la fois** : deux collecteurs utilisant le même compte enverraient des transactions en double.
 
-### 7.5. Démarrage du capteur IoT
-
-Dans un troisième terminal :
+### 8.5. Démarrage du capteur IoT
 
 ```powershell
 cd iot
@@ -279,23 +331,29 @@ python -m venv venv
 pip install paho-mqtt eth-account python-dotenv
 ```
 
-Pour lancer le capteur :
+Lancer le capteur :
 
 ```bash
 python sensor.py
 ```
 
-Pour simuler une rupture de la chaîne du froid :
+Simuler une rupture de la chaîne du froid :
 
 ```bash
 python sensor.py --breach
 ```
 
-Les paramètres du lot et du type de médicament peuvent être configurés dans les variables d'environnement `LOT_NAME` et `MEDICINE`.
+Envoyer des mesures pour un lot et un type de médicament précis (PowerShell) :
 
-### 7.6. Démarrage de la DApp
+```powershell
+$env:LOT_NAME="LOT-INSULINE-001"
+$env:MEDICINE="INSULINE"
+python sensor.py
+```
 
-Dans un quatrième terminal :
+Les types disponibles sont `VACCIN`, `INSULINE`, `ANTIBIOTIQUE` et `VACCIN_CONGELE`. Le collecteur enregistre automatiquement un lot inconnu, avec la plage de son type.
+
+### 8.6. Démarrage de la DApp
 
 ```bash
 cd frontend
@@ -303,62 +361,41 @@ npm install
 npm run dev
 ```
 
-L'application est alors accessible à l'adresse locale fournie par Vite, généralement :
+L'application est alors accessible à l'adresse locale fournie par Vite, généralement `http://localhost:5173`.
 
-`http://localhost:5173`
+## 9. Déploiement
 
-## 8. Déploiement
-
-### 8.1. Déploiement du contrat intelligent
+### 9.1. Déploiement du contrat intelligent
 
 Depuis le dossier `blockchain` :
 
 ```bash
 npx hardhat run scripts/deploy.js --network sepolia
-```
-
-Pour vérifier le contrat sur Etherscan :
-
-```bash
 npx hardhat verify --network sepolia ADRESSE_DU_CONTRAT
 ```
 
-### 8.2. Déploiement du collecteur
+### 9.2. Déploiement du collecteur
 
-Le collecteur est hébergé sur Render.
+Le collecteur est hébergé sur Render. Le dossier racine du service est `collector/`. Les variables d'environnement sont configurées directement dans les paramètres du service Render.
 
-Le dossier racine du service est :
+### 9.3. Déploiement de la DApp
 
-`collector/`
+L'application est hébergée sur Vercel. Le dossier racine du projet est `frontend/`. Trois variables publiques sont configurées dans Vercel : `VITE_CONTRACT_ADDRESS`, `VITE_COLLECTOR_URL` et `VITE_RPC_URL`. Elles sont visibles dans le navigateur : aucune clé privée ni clé d'accès ne doit y figurer.
 
-Les variables d'environnement nécessaires sont configurées directement dans les paramètres du service Render.
+## 10. Tests et sécurité
 
-### 8.3. Déploiement de la DApp
+### 10.1. Tests automatisés
 
-L'application frontend est hébergée sur Vercel.
-
-Le dossier racine du projet est :
-
-`frontend/`
-
-Les paramètres de connexion au contrat et au collecteur doivent être correctement configurés dans les variables d'environnement de Vercel.
-
-## 9. Tests et sécurité
-
-### 9.1. Tests automatisés
-
-Le contrat intelligent a fait l'objet de six tests automatisés avec Hardhat.
-
-Les scénarios couverts comprennent :
+Le contrat intelligent a fait l'objet de six tests automatisés avec Hardhat. Les scénarios couverts sont :
 
 1. L'enregistrement d'un lot.
-2. Le contrôle des accès.
-3. La détection des lots en double.
+2. Le refus d'un appelant sans rôle (contrôle d'accès).
+3. Le refus d'un lot en double.
 4. Le rejet d'une plage de température invalide.
-5. L'ancrage d'une racine de Merkle.
-6. La vérification des preuves de Merkle valides et falsifiées ainsi que le signalement d'une rupture de la chaîne du froid.
+5. L'ancrage d'une racine de Merkle et la vérification d'une mesure, avec rejet d'une mesure falsifiée.
+6. Le signalement d'une rupture, et son refus lorsque la température est normale.
 
-### 9.2. Analyse statique avec Slither
+### 10.2. Analyse statique avec Slither
 
 Une analyse statique a été réalisée avec Slither version 0.11.6.
 
@@ -370,18 +407,18 @@ Une analyse statique a été réalisée avec Slither version 0.11.6.
 
 L'absence d'alerte ne constitue pas une garantie absolue de sécurité. Le contrat n'a pas fait l'objet d'un audit professionnel indépendant.
 
-### 9.3. Mesures de sécurité appliquées
+### 10.3. Mesures de sécurité appliquées
 
-- Contrôle d'accès basé sur les rôles.
-- Protection contre la réentrance.
-- Validation des entrées.
-- Utilisation d'erreurs personnalisées.
+- Contrôle d'accès basé sur les rôles (`COLLECTOR_ROLE`), vérifié aussi côté DApp avant d'afficher la création de lots.
+- Protection contre la réentrance (mesure de principe : le contrat ne fait aucun appel externe ni transfert d'ETH).
+- Validation des entrées et erreurs personnalisées.
 - Émission d'événements pour assurer la traçabilité.
-- Utilisation de signatures cryptographiques.
-- Conservation des données sensibles hors blockchain.
-- Utilisation de communications MQTT sécurisées par TLS.
+- Signatures cryptographiques des mesures, vérifiées par le collecteur.
+- Aucune donnée personnelle sur la blockchain : seulement des empreintes.
+- Communications MQTT sécurisées par TLS.
+- Secrets exclus de GitHub, stockés dans les variables d'environnement des services.
 
-## 10. Analyse des coûts en gas
+## 11. Analyse des coûts en gas
 
 Les mesures de consommation de gas ont été réalisées avec Hardhat, Solidity 0.8.28 et l'optimiseur activé avec 200 exécutions.
 
@@ -393,75 +430,67 @@ Les mesures de consommation de gas ont été réalisées avec Hardhat, Solidity 
 | `flagBreach` | 34 996 | 2 |
 | `grantRole` | 51 485 | 1 |
 
-L'ancrage d'une racine de Merkle permet de représenter un paquet entier de mesures, au lieu d'enregistrer chaque mesure séparément sur la blockchain.
+L'ancrage d'une racine de Merkle (environ 121 000 gas) représente un paquet entier de dix mesures, au lieu d'enregistrer chaque mesure séparément. La vérification d'une preuve est un appel en lecture seule, donc gratuite pour l'utilisateur.
 
-Cette approche contribue à réduire le nombre de transactions et les coûts de stockage.
+Le coût réel en ETH dépend du prix du gas au moment de l'exécution. La création d'un lot depuis la DApp utilise `registerLot` et est payée par le portefeuille de l'opérateur.
 
-Le coût réel en ETH dépend du prix du gas au moment de l'exécution des transactions.
+## 12. Tokenomics
 
-## 11. Tokenomics
+Le projet n'utilise aucun jeton numérique spécifique : aucune émission de cryptomonnaie, aucune vente de jetons, aucune promesse de rendement financier. Les ETH utilisés sur Sepolia sont uniquement des jetons de test sans valeur monétaire réelle.
 
-Le projet n'utilise aucun jeton numérique spécifique.
+## 13. Menaces, limites et perspectives d'amélioration
 
-Il ne prévoit :
+### 13.1. Limites techniques
 
-- Aucune émission de cryptomonnaie.
-- Aucune vente de jetons.
-- Aucune promesse de rendement financier.
+**Fiabilité des capteurs (problème de l'oracle) :** un capteur compromis peut transmettre de fausses mesures, même correctement signées. La blockchain garantit l'intégrité des données enregistrées, pas leur exactitude physique.
 
-Les ETH utilisés sur Sepolia sont uniquement des jetons de test sans valeur monétaire réelle.
+**Simulation des capteurs :** les capteurs sont simulés en Python. Une mise en production nécessiterait des équipements physiques certifiés et des clés protégées par du matériel sécurisé.
 
-## 12. Menaces, limites et perspectives d'amélioration
-
-Malgré les mécanismes de sécurité mis en place, le prototype présente certaines limites.
-
-### 12.1. Limites techniques
-
-**Fiabilité des capteurs :** un capteur compromis peut transmettre de fausses mesures, même si celles-ci sont correctement signées. La blockchain garantit l'intégrité des données enregistrées, mais pas leur exactitude physique.
-
-**Simulation des capteurs :** les capteurs utilisés sont simulés en Python. Une mise en production nécessiterait des équipements physiques certifiés et des clés cryptographiques protégées.
+**Confiance dans le collecteur :** la vérification des signatures des capteurs est faite hors chaîne, par le collecteur, et non par le contrat. Le type de produit transmis par le capteur n'est pas couvert par la signature ; seule la plage du lot, enregistrée sur la blockchain, fait foi.
 
 **Gestion des rôles :** le prototype utilise un nombre limité de comptes. Une production réelle devrait séparer les responsabilités entre fabricants, transporteurs, collecteurs et pharmacies.
 
-**Stockage hors chaîne :** les mesures et les preuves sont conservées par le collecteur dans un fichier JSON. L'offre gratuite de Render peut utiliser un stockage temporaire. Les données peuvent donc être perdues lors d'un redémarrage si aucun stockage persistant n'est configuré.
+**Pas de suppression ni de clôture de lot :** un lot enregistré reste sur la blockchain. C'est un avantage pour la traçabilité, mais une fonction de clôture serait une évolution à prévoir dans un nouveau contrat.
+
+**Stockage hors chaîne :** les mesures et les preuves sont conservées par le collecteur dans un fichier JSON. Le disque de l'offre gratuite de Render est temporaire : après un redémarrage, le collecteur retrouve le fichier du dépôt GitHub, et les paquets créés entre-temps sont perdus. L'état des lots (conforme ou rompu, racines ancrées) reste, lui, permanent sur la blockchain.
 
 **Dépendance au collecteur :** la consultation détaillée des mesures dépend de la disponibilité du serveur qui fournit les preuves de Merkle.
 
 **Réseau de test :** le système utilise Ethereum Sepolia et ne constitue pas encore une solution de production.
 
-### 12.2. Perspectives d'amélioration
-
-Pour améliorer le système, plusieurs évolutions sont envisageables :
+### 13.2. Perspectives d'amélioration
 
 - Intégration de capteurs physiques certifiés.
-- Utilisation d'un stockage persistant avec une base de données.
-- Éventuellement, intégration d'IPFS pour le stockage décentralisé.
-- Séparation des rôles et amélioration de la gestion des autorisations.
+- Stockage persistant (base de données) ou décentralisé (IPFS) pour les preuves.
+- Rôles séparés (fabricant, transporteur, pharmacie) et signature multiple pour les opérations sensibles.
+- Vérification des signatures des capteurs directement dans le contrat.
+- Fonction de clôture d'un lot.
 - Audit professionnel du contrat intelligent.
-- Déploiement sur un réseau blockchain de production.
-- Renforcement de la sécurité des clés cryptographiques.
+- Déploiement sur un réseau blockchain de production à faibles frais.
 - Respect des réglementations pharmaceutiques applicables.
 
-## 13. Données de démonstration
+## 14. Données de démonstration
 
 Toutes les données utilisées dans le prototype sont fictives et synthétiques.
 
-### 13.1. Lots de démonstration
+### 14.1. Lots de démonstration
 
 | Identifiant du lot | Scénario |
 |---|---|
-| `LOT-2026-001` | Lot conforme à la plage autorisée. |
+| `LOT-2026-001` | Lot conforme à la plage autorisée (2 à 8 °C). |
 | `LOT-2026-002` | Lot présentant une rupture de la chaîne du froid. |
+| `LOT-INSULINE-001` | Lot d'insuline (2 à 8 °C), illustrant le catalogue de médicaments. |
+| `LOT-CONGELE-003` | Lot de vaccin congelé (-25 à -15 °C) dont la chaîne du froid est rompue. |
 
-Les lots supplémentaires, notamment les exemples d'insuline et de vaccin congelé, permettent d'illustrer le catalogue et les paramètres de température. Leur disponibilité complète dans les tableaux de mesures dépend de la présence des paquets correspondants dans le collecteur.
+Le tableau détaillé des mesures et l'arbre de Merkle d'un lot ne s'affichent que si les paquets correspondants sont présents dans le collecteur (voir la limite sur le stockage temporaire de Render). L'état du lot, lui, est toujours lu sur la blockchain.
 
-### 13.2. Adresses blockchain
+### 14.2. Adresses blockchain
 
 **Adresse du contrat intelligent :**
 
 `0x29AE4102f9a2F4394C54366770B92040D309ff90`
 
-**Adresse du compte de déploiement Sepolia :**
+**Adresse du compte de déploiement Sepolia (administrateur et collecteur) :**
 
 `0xdf7E70581c9aE16C34A6752C0af7528259c77d9B`
 
@@ -471,9 +500,7 @@ Les lots supplémentaires, notamment les exemples d'insuline et de vaccin congel
 
 Aucune clé privée n'est publiée dans le dépôt.
 
-## 14. Captures d'écran et illustrations
-
-Les captures suivantes permettent de présenter les différentes parties du prototype.
+## 15. Captures d'écran et illustrations
 
 ### DApp : lot conforme
 ![DApp : lot conforme](docs/dapp-conforme.png)
@@ -493,9 +520,19 @@ Les captures suivantes permettent de présenter les différentes parties du prot
 ### Résultats des tests Hardhat
 ![Résultats des tests Hardhat](docs/tests-hardhat.png)
 
-> **Important :** Pour que ces visuels s'affichent, assurez-vous d'avoir bien créé un dossier nommé `docs` à la racine de votre projet GitHub et d'y avoir téléversé (uploadé) vos fichiers images avec les noms exacts (ex: `dapp-conforme.png`).
+<!--
+Captures supplémentaires : enregistrer les deux images dans le dossier docs/ avec ces noms exacts,
+puis retirer la balise de commentaire ouvrante (au-dessus de ce texte) et la balise fermante
+(sous les deux images ci-dessous), pour que les images s'affichent.
 
-## 15. Licence
+### Visualisation de l'arbre de Merkle
+![Arbre de Merkle](docs/arbre-merkle.png)
+
+### Espace opérateur : création d'un lot
+![Espace opérateur](docs/espace-operateur.png)
+-->
+
+## 16. Licence
 
 Ce projet est distribué sous licence MIT.
 
