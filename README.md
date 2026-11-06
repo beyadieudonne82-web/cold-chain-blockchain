@@ -475,16 +475,25 @@ Aucune clé privée n'est publiée dans le dépôt.
 
 Les captures suivantes permettent de présenter les différentes parties du prototype.
 
-| Illustration | Fichier |
-|---|---|
-| DApp : lot conforme | `docs/dapp-conforme.png` |
-| DApp : lot avec rupture de la chaîne du froid | `docs/dapp-rompu.png` |
-| Transactions sur Etherscan | `docs/etherscan-transactions.png` |
-| Contrat intelligent vérifié | `docs/etherscan-contrat-verifie.png` |
-| Collecteur en ligne sur Render | `docs/render-live.png` |
-| Résultats des tests Hardhat | `docs/tests-hardhat.png` |
+### DApp : lot conforme
+![DApp : lot conforme](docs/dapp-conforme.png)
 
-Les captures doivent être placées dans le dossier `docs/` du dépôt pour être affichées dans cette documentation.
+### DApp : lot avec rupture de la chaîne du froid
+![DApp : lot avec rupture de la chaîne du froid](docs/dapp-rompu.png)
+
+### Transactions sur Etherscan
+![Transactions sur Etherscan](docs/etherscan-transactions.png)
+
+### Contrat intelligent vérifié
+![Contrat intelligent vérifié](docs/etherscan-contrat-verifie.png)
+
+### Collecteur en ligne sur Render
+![Collecteur en ligne sur Render](docs/render-live.png)
+
+### Résultats des tests Hardhat
+![Résultats des tests Hardhat](docs/tests-hardhat.png)
+
+> **Important :** Pour que ces visuels s'affichent, assurez-vous d'avoir bien créé un dossier nommé `docs` à la racine de votre projet GitHub et d'y avoir téléversé (uploadé) vos fichiers images avec les noms exacts (ex: `dapp-conforme.png`).
 
 ## 15. Licence
 
