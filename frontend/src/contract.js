@@ -10,6 +10,8 @@ export const ABI = [
   "function getLot(bytes32 lotId) view returns (tuple(bool exists, bool compromised, uint64 createdAt, int16 minTemp, int16 maxTemp, bytes32 productHash, uint32 anchorCount))",
   "function verifyMeasurement(bytes32 lotId, uint256 anchorIndex, bytes32 leaf, bytes32[] proof) view returns (bool)",
   "function getAnchor(bytes32 lotId, uint256 index) view returns (tuple(bytes32 root, uint32 measureCount, uint64 timestamp))",
+  "function registerLot(bytes32 lotId, bytes32 productHash, int16 minTemp, int16 maxTemp)",
+  "function hasRole(bytes32 role, address account) view returns (bool)",
 ];
 
 export const lotIdOf = (name) => ethers.id(name);

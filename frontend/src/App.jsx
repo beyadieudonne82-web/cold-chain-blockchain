@@ -5,6 +5,7 @@ import {
   lotIdOf, publicContract, walletContract,
 } from "./contract";
 import "./App.css";
+import OperatorPanel from "./OperatorPanel";
 import MerkleExplorer from "./MerkleExplorer";
 const MEDICINE_NAMES = {
   VACCIN: "Vaccin",
@@ -117,7 +118,7 @@ export default function App() {
         {error && <p className="error">{error}</p>}
         {note && <p className="warn">{note}</p>}
       </section>
-
+      <OperatorPanel account={account} onOpenLot={(n) => { setLotName(n); search(n); }} />
       {lot && (
         <section className="card">
           <div className={lot.compromised ? "badge bad" : "badge good"}>
@@ -148,9 +149,8 @@ export default function App() {
             <tbody>
               {b.measures.map((m, i) => {
                 const key = `${b.anchorIndex}-${i}`;
-                const out = out_(results[key]);
                 const abnormal = lot && (m.temperature / 10 < lot.minTemp || m.temperature / 10 > lot.maxTemp);
-                return (
+const out = out_(results[key], abnormal);
                   <tr key={key} className={abnormal ? "row-bad" : ""}>
                     <td>{new Date(m.timestamp * 1000).toLocaleTimeString()}</td>
                     <td>{m.temperature / 10} °C</td>
@@ -162,6 +162,7 @@ export default function App() {
               })}
             </tbody>
           </table>
+                    <p className="hint">« Intègre » : la mesure n'a pas été modifiée depuis son enregistrement. « Conforme » ou « Hors plage » : comparaison avec la plage du lot.</p>
                     <MerkleExplorer batch={b} />
         </section>
       ))}
@@ -169,7 +170,10 @@ export default function App() {
   );S
 }
 
-function out_(value) {
+function out_(value, abnormal) {
   if (value === undefined) return null;
-  return value ? <span className="good-text">✔ Authentique</span> : <span className="error">✘ Invalide</span>;
+  if (!value) return <span className="error">✘ Invalide : mesure modifiée</span>;
+  return abnormal
+    ? <span className="error">⚠ Hors plage · intègre</span>
+    : <span className="good-text">✔ Conforme · intègre</span>;
 }
