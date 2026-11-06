@@ -180,4 +180,4 @@ function out_(value, abnormal) {
   return abnormal
     ? <span className="error">⚠ Hors plage · intègre</span>
     : <span className="good-text">✔ Conforme · intègre</span>;
-}$env:LOT_NAME="LOT-2026-003"
+}
