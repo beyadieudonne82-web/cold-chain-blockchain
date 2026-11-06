@@ -4,9 +4,10 @@ import {
   CONTRACT_ADDRESS, COLLECTOR_URL, SEPOLIA_CHAIN_ID,
   lotIdOf, publicContract, walletContract,
 } from "./contract";
-import "./App.css";
-import OperatorPanel from "./OperatorPanel";
 import MerkleExplorer from "./MerkleExplorer";
+import OperatorPanel from "./OperatorPanel";
+import "./App.css";
+
 const MEDICINE_NAMES = {
   VACCIN: "Vaccin",
   INSULINE: "Insuline",
@@ -114,11 +115,13 @@ export default function App() {
           />
           <button onClick={() => search()}>Vérifier</button>
         </div>
-        {loading && <p>Lecture de la blockchain…</p>}
+        {loading && <p>Lecture de la blockchain… (la première fois, cela peut prendre jusqu'à une minute)</p>}
         {error && <p className="error">{error}</p>}
         {note && <p className="warn">{note}</p>}
       </section>
+
       <OperatorPanel account={account} onOpenLot={(n) => { setLotName(n); search(n); }} />
+
       {lot && (
         <section className="card">
           <div className={lot.compromised ? "badge bad" : "badge good"}>
@@ -140,7 +143,7 @@ export default function App() {
       {batches.map((b) => (
         <section className="card" key={b.txHash}>
           <h3>Paquet n°{b.anchorIndex}</h3>
-              {b.medicine && <p className="hint">Médicament : {MEDICINE_NAMES[b.medicine] || b.medicine}</p>}
+          {b.medicine && <p className="hint">Médicament : {MEDICINE_NAMES[b.medicine] || b.medicine}</p>}
           <small>Racine : <code>{b.root.slice(0, 18)}…</code></small>
           <table>
             <thead>
@@ -150,7 +153,8 @@ export default function App() {
               {b.measures.map((m, i) => {
                 const key = `${b.anchorIndex}-${i}`;
                 const abnormal = lot && (m.temperature / 10 < lot.minTemp || m.temperature / 10 > lot.maxTemp);
-const out = out_(results[key], abnormal);
+                const out = out_(results[key], abnormal);
+                return (
                   <tr key={key} className={abnormal ? "row-bad" : ""}>
                     <td>{new Date(m.timestamp * 1000).toLocaleTimeString()}</td>
                     <td>{m.temperature / 10} °C</td>
@@ -162,12 +166,12 @@ const out = out_(results[key], abnormal);
               })}
             </tbody>
           </table>
-                    <p className="hint">« Intègre » : la mesure n'a pas été modifiée depuis son enregistrement. « Conforme » ou « Hors plage » : comparaison avec la plage du lot.</p>
-                    <MerkleExplorer batch={b} />
+          <p className="hint">« Intègre » : la mesure n'a pas été modifiée depuis son enregistrement. « Conforme » ou « Hors plage » : comparaison avec la plage du lot.</p>
+          <MerkleExplorer batch={b} />
         </section>
       ))}
     </div>
-  );S
+  );
 }
 
 function out_(value, abnormal) {
@@ -176,4 +180,4 @@ function out_(value, abnormal) {
   return abnormal
     ? <span className="error">⚠ Hors plage · intègre</span>
     : <span className="good-text">✔ Conforme · intègre</span>;
-}
+}$env:LOT_NAME="LOT-2026-003"
